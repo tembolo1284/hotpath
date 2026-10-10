@@ -9,6 +9,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 option(HOTPATH_BUILD_TESTS "Build unit tests" ON)
 option(HOTPATH_BUILD_APPS "Build the pipeline executables" ON)
+option(HOTPATH_BUILD_BENCH "Build the benchmarks" ON)
 option(HOTPATH_WERROR "Treat warnings as errors" ON)
 option(HOTPATH_NATIVE "Tune for the build machine" OFF)
 set(HOTPATH_SANITIZE "" CACHE STRING "Sanitizers to enable, e.g. address,undefined or thread")
@@ -26,6 +27,10 @@ target_link_libraries(hotpath INTERFACE Threads::Threads)
 
 if(HOTPATH_BUILD_APPS)
     add_subdirectory(apps)
+endif()
+
+if(HOTPATH_BUILD_BENCH)
+    add_subdirectory(bench)
 endif()
 
 if(HOTPATH_BUILD_TESTS)
