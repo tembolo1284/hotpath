@@ -33,6 +33,7 @@ Options:
   -j, --jobs N         build: parallel jobs (default: all cores)
   -s, --seconds N      run: how long to run (default: 10)
   -r, --rate N         run: simulated order-flow actions per second (default: 2000)
+      --max-rate N     run: gateway risk limit in orders per second (default: 1000)
       --symbols LIST   run: comma-separated tickers (default: MSFT,NVDA,AAPL,AMZN)
       --cpus A,B,C,D   run: pin feed_handler, strategy, order_gateway, venue_sim
                        bench: pin the measuring thread to A and the second thread to B
@@ -47,6 +48,7 @@ Examples:
   ./build.sh test -p tsan
   ./build.sh run -s 30
   ./build.sh run --cpus 2,3,4,5 --idle-us 0
+  ./build.sh run --cpus 2,3,4,5 --idle-us 0 -s 60 -r 20000 --max-rate 5000
   ./build.sh bench --cpus 2,3
   ./build.sh bench -f levels --cpus 2
 TEXT
@@ -69,6 +71,7 @@ FILTER=""
 JOBS=""
 SECONDS_TO_RUN=10
 RATE=2000
+MAX_RATE=""
 SYMBOLS=""
 CPUS=""
 IDLE_US=""
@@ -82,6 +85,7 @@ while [ $# -gt 0 ]; do
         -j|--jobs)    JOBS="${2:?--jobs needs a value}"; shift 2 ;;
         -s|--seconds) SECONDS_TO_RUN="${2:?--seconds needs a value}"; shift 2 ;;
         -r|--rate)    RATE="${2:?--rate needs a value}"; shift 2 ;;
+        --max-rate)   MAX_RATE="${2:?--max-rate needs a value}"; shift 2 ;;
         --symbols)    SYMBOLS="${2:?--symbols needs a value}"; shift 2 ;;
         --cpus)       CPUS="${2:?--cpus needs a value}"; shift 2 ;;
         --idle-us)    IDLE_US="${2:?--idle-us needs a value}"; shift 2 ;;
@@ -180,6 +184,8 @@ do_run() {
     [ -n "$SYMBOLS" ] && symbol_args+=("--symbols=$SYMBOLS")
     local page_args=()
     [ "$HUGEPAGES" -eq 0 ] && page_args+=("--no-hugepages")
+    local gateway_args=()
+    [ -n "$MAX_RATE" ] && gateway_args+=("--max-rate=$MAX_RATE")
 
     mkdir -p "$LOG_DIR"
     rm -f "$LOG_DIR"/*.log
@@ -190,7 +196,7 @@ do_run() {
     launch feed_handler "$cpu_feed" "${symbol_args[@]}" "${page_args[@]}"
     sleep 0.3
     launch venue_sim "$cpu_venue" "--rate=$RATE" "${symbol_args[@]}" "${page_args[@]}"
-    launch order_gateway "$cpu_gateway" "${symbol_args[@]}"
+    launch order_gateway "$cpu_gateway" "${symbol_args[@]}" "${gateway_args[@]}"
     launch strategy "$cpu_strategy" "${symbol_args[@]}" "${page_args[@]}"
 
     local failed=0
