@@ -58,6 +58,8 @@ struct GatewayLatency {
     perf::Histogram tick_to_trade{};
     perf::Histogram feed_to_decision{};
     perf::Histogram decision_to_wire{};
+    perf::Histogram decision_to_gateway{};
+    perf::Histogram gateway_to_wire{};
 };
 
 template <Transport T, RequestSource Requests, ReportSink Reports, typename Clock = TscClock>
@@ -90,6 +92,7 @@ public:
             if (request == nullptr) {
                 break;
             }
+            picked_ = Clock::now();
             handle(*request);
             requests_->consume();
             handled += 1U;
@@ -292,6 +295,10 @@ private:
             if (request.decision_tsc >= request.origin_tsc && sent >= request.decision_tsc) {
                 latency_.feed_to_decision.record(request.decision_tsc - request.origin_tsc);
                 latency_.decision_to_wire.record(sent - request.decision_tsc);
+                if (picked_ >= request.decision_tsc && sent >= picked_) {
+                    latency_.decision_to_gateway.record(picked_ - request.decision_tsc);
+                    latency_.gateway_to_wire.record(sent - picked_);
+                }
             }
         }
     }
@@ -371,6 +378,7 @@ private:
     GatewayStats stats_{};
     GatewayLatency latency_{};
     std::uint64_t now_{0};
+    std::uint64_t picked_{0};
 };
 
 } // namespace hotpath::gateway

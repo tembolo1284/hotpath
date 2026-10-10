@@ -1,0 +1,12 @@
+function(hotpath_bench name)
+    add_executable(${name} ${name}.cpp)
+    target_include_directories(${name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(${name} PRIVATE hotpath::hotpath hotpath::flags)
+    set_target_properties(${name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bench")
+endfunction()
+
+hotpath_bench(ring_bench)
+hotpath_bench(wire_bench)
+hotpath_bench(levels_bench)
+hotpath_bench(book_bench)
+hotpath_bench(pipeline_bench)

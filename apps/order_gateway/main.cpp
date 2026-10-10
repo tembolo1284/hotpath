@@ -50,6 +50,8 @@ void print_stats(const Gateway& gw, const TscScale& scale, bool with_latency) {
                     perf::summarize(gw.latency().feed_to_decision, scale));
         perf::print(stdout, "decision-to-wire",
                     perf::summarize(gw.latency().decision_to_wire, scale));
+        perf::print(stdout, "  ring-hop", perf::summarize(gw.latency().decision_to_gateway, scale));
+        perf::print(stdout, "  gateway-send", perf::summarize(gw.latency().gateway_to_wire, scale));
     }
     static_cast<void>(std::fflush(stdout));
 }

@@ -6,6 +6,7 @@ cd "$ROOT"
 
 PRESETS="debug release asan tsan"
 APPS="feed_handler venue_sim order_gateway strategy"
+BENCHES="ring_bench wire_bench levels_bench book_bench pipeline_bench"
 
 usage() {
     cat <<'TEXT'
@@ -17,6 +18,7 @@ Commands:
   build      Configure and compile
   test       Build, then run the test suite
   run        Build, then run the four-process pipeline against the simulated venue
+  bench      Build, then run the benchmarks
   stop       Stop pipeline processes left running
   clean      Remove build output for one preset
   distclean  Remove the whole build directory
@@ -25,13 +27,15 @@ Commands:
 
 Options:
   -p, --preset NAME    debug | release | asan | tsan
-                       (default: debug for build and test, release for run)
+                       (default: debug for build and test, release for run and bench)
   -f, --filter EXPR    test: GoogleTest filter, e.g. 'Book*' or 'SimLoop*'
+                       bench: run only the benchmarks whose name contains EXPR
   -j, --jobs N         build: parallel jobs (default: all cores)
   -s, --seconds N      run: how long to run (default: 10)
   -r, --rate N         run: simulated order-flow actions per second (default: 2000)
       --symbols LIST   run: comma-separated tickers (default: MSFT,NVDA,AAPL,AMZN)
       --cpus A,B,C,D   run: pin feed_handler, strategy, order_gateway, venue_sim
+                       bench: pin the measuring thread to A and the second thread to B
       --idle-us N      run: sleep N microseconds when a process has no work;
                        0 busy-spins (default: 0 with 6+ cores, otherwise 20)
       --hugepages      run: try 2M huge pages (default: 4K pages)
@@ -43,6 +47,8 @@ Examples:
   ./build.sh test -p tsan
   ./build.sh run -s 30
   ./build.sh run --cpus 2,3,4,5 --idle-us 0
+  ./build.sh bench --cpus 2,3
+  ./build.sh bench -f levels --cpus 2
 TEXT
 }
 
@@ -87,7 +93,10 @@ while [ $# -gt 0 ]; do
 done
 
 if [ -z "$PRESET" ]; then
-    if [ "$COMMAND" = "run" ]; then PRESET="release"; else PRESET="debug"; fi
+    case "$COMMAND" in
+        run|bench) PRESET="release" ;;
+        *)         PRESET="debug" ;;
+    esac
 fi
 case " $PRESETS " in
     *" $PRESET "*) ;;
@@ -194,12 +203,36 @@ do_run() {
     for app in venue_sim feed_handler strategy; do
         tail -n 1 "$LOG_DIR/$app.log" 2>/dev/null || true
     done
-    grep -E '^(order_gateway: requests|tick-to-trade|feed-to-decision|decision-to-wire)' \
-        "$LOG_DIR/order_gateway.log" | tail -n 4 || true
+    grep -E '^(order_gateway: requests|tick-to-trade|feed-to-decision|decision-to-wire|  ring-hop|  gateway-send)' \
+        "$LOG_DIR/order_gateway.log" | tail -n 6 || true
     rm -f /dev/shm/hotpath-market /dev/shm/hotpath-requests /dev/shm/hotpath-reports
     if [ "$failed" -ne 0 ]; then
         die "a process exited with an error; see ${LOG_DIR#"$ROOT"/}"
     fi
+}
+
+do_bench() {
+    do_build
+    local cpu_a="" cpu_b="" rest=""
+    if [ -n "$CPUS" ]; then
+        IFS=',' read -r cpu_a cpu_b rest <<<"$CPUS"
+    fi
+    local args=()
+    [ -n "$cpu_a" ] && args+=("--cpu=$cpu_a")
+    [ -n "$cpu_b" ] && args+=("--cpu2=$cpu_b")
+
+    local ran=0
+    for bench in $BENCHES; do
+        case "$bench" in
+            *"$FILTER"*) ;;
+            *) continue ;;
+        esac
+        [ -x "$BUILD_DIR/bench/$bench" ] || die "missing $BUILD_DIR/bench/$bench"
+        "$BUILD_DIR/bench/$bench" "${args[@]}"
+        echo
+        ran=1
+    done
+    [ "$ran" -eq 1 ] || die "no benchmark matches '$FILTER' (choose from: $BENCHES)"
 }
 
 do_clean() {
@@ -211,6 +244,7 @@ case "$COMMAND" in
     build)     do_build ;;
     test)      do_test ;;
     run)       do_run ;;
+    bench)     do_bench ;;
     stop)      do_stop ;;
     clean)     do_clean ;;
     distclean) rm -rf "$ROOT/build"; echo "removed build/" ;;

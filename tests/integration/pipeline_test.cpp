@@ -122,6 +122,8 @@ TEST(Pipeline, TickInOrderOutThroughAllThreeStages) {
     EXPECT_EQ(gw.latency().tick_to_trade.max(), 100U);
     EXPECT_EQ(gw.latency().feed_to_decision.max(), 40U);
     EXPECT_EQ(gw.latency().decision_to_wire.max(), 60U);
+    EXPECT_EQ(gw.latency().decision_to_gateway.max(), 60U);
+    EXPECT_EQ(gw.latency().gateway_to_wire.count(), 1U);
 
     auto fill = wire::ouch::make<wire::ouch::Executed>();
     fill.token = enter.token;

@@ -184,6 +184,7 @@ TEST(SimLoop, StrategyTradesAgainstTheSimulatedVenueOverSockets) {
                 static_cast<unsigned long long>(feed_handler.stats().requests_sent));
     EXPECT_EQ(gw.latency().tick_to_trade.count(), gw.stats().tick_to_trade.count);
     EXPECT_EQ(gw.latency().feed_to_decision.count(), gw.latency().decision_to_wire.count());
+    EXPECT_EQ(gw.latency().decision_to_gateway.count(), gw.latency().gateway_to_wire.count());
     if (has_invariant_tsc()) {
         const TscScale scale = calibrate_tsc(10'000'000ULL);
         perf::print(stdout, "tick-to-trade", perf::summarize(gw.latency().tick_to_trade, scale));
