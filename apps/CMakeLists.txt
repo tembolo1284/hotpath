@@ -1,0 +1,11 @@
+function(hotpath_app name)
+    add_executable(${name} ${name}/main.cpp)
+    target_include_directories(${name} PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
+    target_link_libraries(${name} PRIVATE hotpath::hotpath hotpath::flags)
+    set_target_properties(${name} PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin")
+endfunction()
+
+hotpath_app(feed_handler)
+hotpath_app(strategy)
+hotpath_app(order_gateway)
+hotpath_app(venue_sim)
